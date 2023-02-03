@@ -14,7 +14,7 @@ from rotations import angle_normalize, rpy_jacobian_axis_angle, skew_symmetric, 
 # This is where you will load the data from the pickle files. For parts 1 and 2, you will use
 # p1_data.pkl. For Part 3, you will use pt3_data.pkl.
 ################################################################################################
-with open('C:/Users/bests/OneDrive/Desktop/state_estimation/data/pt1_data.pkl', 'rb') as file:
+with open('C:/Users/Shengye Dong/Desktop/Meaningful Modular Topics/state_estimation/data/pt1_data.pkl', 'rb') as file:
     data = pickle.load(file)
 
 ################################################################################################
@@ -46,35 +46,35 @@ imu_f = data['imu_f']
 imu_w = data['imu_w']
 gnss = data['gnss']
 lidar = data['lidar']
-print("Check point:",np.shape(lidar.data))
+print("Check point:", np.shape(lidar.data))
 ################################################################################################
 # Let's plot the ground truth trajectory to see what it looks like. When you're testing your
 # code later, feel free to comment this out.
 ################################################################################################
 gt_fig = plt.figure()
 ax = gt_fig.add_subplot(111, projection='3d')
-ax.plot(gt.a[:,0], gt.p[:,1], gt.p[:,2])
+ax.plot(gt.a[:, 0], gt.p[:, 1], gt.p[:, 2])
 ax.set_xlabel('x [m]')
 ax.set_ylabel('y [m]')
 ax.set_zlabel('z [m]')
 ax.set_title('Ground Truth trajectory')
 ax.set_zlim(-1, 5)
-#plt.show()
+plt.show()
 
 ################################################################################################
 # Remember that our LIDAR data is actually just a set of positions estimated from a separate
 # scan-matching system, so we can insert it into our solver as another position measurement,
 # just as we do for GNSS. However, the LIDAR frame is not the same as the frame shared by the
-# IMU and the GNSS. To remedy this, we transform the LIDAR data to the IMU frame using our 
+# IMU and the GNSS. To remedy this, we transform the LIDAR data to the IMU frame using our
 # known extrinsic calibration rotation matrix C_li and translation vector t_i_li.
 #
 # THIS IS THE CODE YOU WILL MODIFY FOR PART 2 OF THE ASSIGNMENT.
 ################################################################################################
 # Correct calibration rotation matrix, corresponding to Euler RPY angles (0.05, 0.05, 0.1).
 C_li = np.array([
-   [ 0.99376, -0.09722,  0.05466],
-   [ 0.09971,  0.99401, -0.04475],
-   [-0.04998,  0.04992,  0.9975 ]
+    [0.99376, -0.09722,  0.05466],
+    [0.09971,  0.99401, -0.04475],
+    [-0.04998,  0.04992,  0.9975]
 ])
 
 # Incorrect calibration rotation matrix, corresponding to Euler RPY angles (0.05, 0.05, 0.05).
@@ -98,7 +98,7 @@ lidar.data = (C_li @ lidar.data.T).T + t_i_li
 ################################################################################################
 var_imu_f = 0.10
 var_imu_w = 0.25
-var_gnss  = 0.01
+var_gnss = 0.01
 var_lidar = 1.00
 
 ################################################################################################
@@ -107,10 +107,10 @@ var_lidar = 1.00
 g = np.array([0, 0, -9.81])  # gravity
 l_jac = np.zeros([9, 6])
 l_jac[3:, :] = np.eye(6)  # motion model noise jacobian
-print("Check point2:",l_jac)
+print("Check point2:", l_jac)
 h_jac = np.zeros([3, 9])
 h_jac[:, :3] = np.eye(3)  # measurement model jacobian
-print("Check point2:",h_jac)
+print("Check point2:", h_jac)
 #### 3. Initial Values #########################################################################
 
 ################################################################################################
@@ -118,15 +118,17 @@ print("Check point2:",h_jac)
 ################################################################################################
 p_est = np.zeros([imu_f.data.shape[0], 3])  # position estimates
 v_est = np.zeros([imu_f.data.shape[0], 3])  # velocity estimates
-q_est = np.zeros([imu_f.data.shape[0], 4])  # orientation estimates as quaternions
-p_cov = np.zeros([imu_f.data.shape[0], 9, 9])  # covariance matrices at each timestep
+# orientation estimates as quaternions
+q_est = np.zeros([imu_f.data.shape[0], 4])
+# covariance matrices at each timestep
+p_cov = np.zeros([imu_f.data.shape[0], 9, 9])
 
 # Set initial values.
 p_est[0] = gt.p[0]
 v_est[0] = gt.v[0]
 q_est[0] = Quaternion(euler=gt.r[0]).to_numpy()
 p_cov[0] = np.zeros(9)  # covariance of estimate
-gnss_i  = 0
+gnss_i = 0
 lidar_i = 0
 
 #### 4. Measurement Update #####################################################################
@@ -135,6 +137,8 @@ lidar_i = 0
 # Since we'll need a measurement update for both the GNSS and the LIDAR data, let's make
 # a function for it.
 ################################################################################################
+
+
 def measurement_update(sensor_var, p_cov_check, y_k, p_check, v_check, q_check):
     # 3.1 Compute Kalman Gain
 
@@ -148,17 +152,24 @@ def measurement_update(sensor_var, p_cov_check, y_k, p_check, v_check, q_check):
 
 #### 5. Main Filter Loop #######################################################################
 
+
 ################################################################################################
 # Now that everything is set up, we can start taking in the sensor data and creating estimates
 # for our state in a loop.
 ################################################################################################
-for k in range(1, imu_f.data.shape[0]):  # start at 1 b/c we have initial prediction from gt
+# start at 1 b/c we have initial prediction from gt
+for k in range(1, imu_f.data.shape[0]):
     delta_t = imu_f.t[k] - imu_f.t[k - 1]
-
-    # 1. Update state with IMU inputs
-
+    # print(delta_t)
+    # print(imu_f.data[0])
+    # 1. Update state with IMU inputs   imu_f.data[0] 3D
+    rotation_matrix = Quaternion(*q_est[k-1]).to_mat()
     # 1.1 Linearize the motion model and compute Jacobians
-
+    p_est[k] = p_est[k-1] + delta_t*v_est[k-1] + \
+        (delta_t**2 / 2)*(rotation_matrix.dot(imu_f.data[k-1]) + g)
+    v_est[k] = v_est[k-1] + delta_t*(rotation_matrix.dot(imu_f.data[k-1]) + g)
+    q_est[k] = Quaternion(axis_angle=imu_w.data[k-1] *
+                          delta_t).quat_mult_right(q_est[k-1])
     # 2. Propagate uncertainty
 
     # 3. Check availability of GNSS and LIDAR measurements
@@ -175,8 +186,8 @@ for k in range(1, imu_f.data.shape[0]):  # start at 1 b/c we have initial predic
 ################################################################################################
 est_traj_fig = plt.figure()
 ax = est_traj_fig.add_subplot(111, projection='3d')
-ax.plot(p_est[:,0], p_est[:,1], p_est[:,2], label='Estimated')
-ax.plot(gt.p[:,0], gt.p[:,1], gt.p[:,2], label='Ground Truth')
+ax.plot(p_est[:, 0], p_est[:, 1], p_est[:, 2], label='Estimated')
+ax.plot(gt.p[:, 0], gt.p[:, 1], gt.p[:, 2], label='Ground Truth')
 ax.set_xlabel('Easting [m]')
 ax.set_ylabel('Northing [m]')
 ax.set_zlabel('Up [m]')
@@ -187,9 +198,9 @@ ax.set_zlim(-2, 2)
 ax.set_xticks([0, 50, 100, 150, 200])
 ax.set_yticks([0, 50, 100, 150, 200])
 ax.set_zticks([-2, -1, 0, 1, 2])
-ax.legend(loc=(0.62,0.77))
+ax.legend(loc=(0.62, 0.77))
 ax.view_init(elev=45, azim=-50)
-#plt.show()
+# plt.show()
 
 ################################################################################################
 # We can also plot the error for each of the 6 DOF, with estimates for our uncertainty
@@ -223,16 +234,16 @@ for i in range(3):
     ax[0, i].plot(range(num_gt),  3 * p_cov_std[:num_gt, i], 'r--')
     ax[0, i].plot(range(num_gt), -3 * p_cov_std[:num_gt, i], 'r--')
     ax[0, i].set_title(titles[i])
-ax[0,0].set_ylabel('Meters')
+ax[0, 0].set_ylabel('Meters')
 
 for i in range(3):
-    ax[1, i].plot(range(num_gt), \
-        angle_normalize(gt.r[:, i] - p_est_euler[:num_gt, i]))
+    ax[1, i].plot(range(num_gt),
+                  angle_normalize(gt.r[:, i] - p_est_euler[:num_gt, i]))
     ax[1, i].plot(range(num_gt),  3 * p_cov_euler_std[:num_gt, i], 'r--')
     ax[1, i].plot(range(num_gt), -3 * p_cov_euler_std[:num_gt, i], 'r--')
     ax[1, i].set_title(titles[i+3])
-ax[1,0].set_ylabel('Radians')
-#plt.show()
+ax[1, 0].set_ylabel('Radians')
+# plt.show()
 
 #### 7. Submission #############################################################################
 
