@@ -1,0 +1,19 @@
+ply
+format ascii 1.0
+element vertex 4
+property float x
+property float y
+property float z
+property float nx        
+property float ny
+property float nz
+property uchar red
+property uchar green
+property uchar blue
+element face 0
+property list uchar int vertex_index
+end_header
+0 0 1 1 0 0 0 0 155 
+0 0 1 1 0 0 0 0 155 
+0 1 0 1 0 0 0 0 155 
+1 0 0 1 0 0 0 0 155 
